@@ -141,16 +141,16 @@
         });
 
         // ==========================================
-        //  Date Calculations (升級：動態濾除無用 0 值)
+        //  Date Calculations
         // ==========================================
-        window.calculateUsageTime = (startStr, hideYear = false) => {
-            if (!startStr) return { text: '-', days: 0, totalMonths: 0 };
+        window.calculateUsageTime = (startStr) => {
+            if (!startStr) return { text: '-', days: 0 };
             const start = new Date(startStr);
             const today = new Date();
             today.setHours(23, 59, 59, 999);
             
             const totalDays = Math.floor((today - start) / (1000 * 60 * 60 * 24));
-            if (start > today) return { text: '0天', days: 0, totalMonths: 0 };
+            if (start > today) return { text: '0年00月00天', days: 0 };
             
             let y = today.getFullYear() - start.getFullYear();
             let m = today.getMonth() - start.getMonth();
@@ -166,42 +166,17 @@
                 m += 12;
             }
             
-            let totalMonths = y * 12 + m;
-
-            // 針對濾網清洗：把「年」全部換算成「月」
-            if (hideYear) {
-                m += y * 12;
-                y = 0;
-            }
-            
-            // 動態組裝文字：不顯示 0 年或 0 個月
-            let text = '';
-            if (y > 0) text += `${y}年`;
-            if (m > 0) text += `${m}月`;
-            if (d > 0 || text === '') text += `${d}天`; // 如果都沒有則預設顯示 0天
-            
-            return { text, days: totalDays, totalMonths };
-        };
-
-        window.renderACWashTime = (startStr) => {
-            if (!startStr) return `<div class="text-sm font-bold text-teal-700 text-center bg-white p-2.5 rounded-xl border border-teal-100 shadow-sm h-full flex items-center justify-center">-</div>`;
-            const data = calculateUsageTime(startStr, false);
-            
-            // 冷氣保養超過滿6個月時，顯示紅色加粗螢光邊
-            if (data.totalMonths >= 6) {
-                return `<div class="text-sm text-red-600 font-extrabold bg-red-100 p-2.5 rounded-xl border-2 border-red-400 animate-pulse shadow-sm h-full flex items-center justify-center tracking-wide">${data.text}</div>`;
-            }
-            return `<div class="text-sm font-bold text-teal-700 text-center bg-white p-2.5 rounded-xl border border-teal-100 shadow-sm h-full flex items-center justify-center">${data.text}</div>`;
+            const text = `${y}年${m.toString().padStart(2, '0')}月${d.toString().padStart(2, '0')}天`;
+            return { text, days: totalDays };
         };
 
         window.renderFilterTime = (startStr) => {
-            if (!startStr) return `<div class="text-sm font-bold text-emerald-700 text-center bg-white p-2.5 rounded-xl border border-emerald-100 shadow-sm h-full flex items-center justify-center">-</div>`;
-            const data = calculateUsageTime(startStr, true); // hideYear 設為 true
-            
+            const data = calculateUsageTime(startStr);
+            if (data.text === '-') return '-';
             if (data.days > 30) {
-                return `<div class="text-sm text-red-600 font-extrabold bg-red-100 p-1.5 rounded-xl border-2 border-red-400 animate-pulse shadow-sm h-full flex flex-col items-center justify-center leading-tight tracking-wide"><span>${data.text}</span><span class="text-[10px] opacity-90">(該洗濾網了)</span></div>`;
+                return `<span class="text-red-600 font-extrabold bg-red-100 px-2 py-1 rounded shadow-sm border border-red-300 animate-pulse inline-block">${data.text} <br><span class="text-xs">(該洗濾網了)</span></span>`;
             }
-            return `<div class="text-sm font-bold text-emerald-700 text-center bg-white p-2.5 rounded-xl border border-emerald-100 shadow-sm h-full flex items-center justify-center">${data.text}</div>`;
+            return `<span class="text-emerald-700 font-bold">${data.text}</span>`;
         };
 
         // ==========================================
@@ -430,12 +405,14 @@
                     </div>
                     
                     <div class="glass-panel p-8 md:p-12 rounded-[2rem] shadow-2xl z-10 w-[32rem] max-w-[95vw] text-center border-4 border-cyan-200">
+                        <!-- 將原本的冰雪符號改為 logo.jpg -->
                         <div class="w-32 h-32 mx-auto mb-6 flex items-center justify-center">
                             <img src="images/logo.jpg" alt="囍事快剪" class="w-full h-full object-contain rounded-2xl shadow-sm border border-cyan-100" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2260%22 viewBox=%220 0 100 60%22%3E%3Crect width=%22100%22 height=%2260%22 fill=%22%23cffafe%22/%3E%3Ctext x=%2250%22 y=%2235%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2216%22 text-anchor=%22middle%22 fill=%22%230891b2%22%3ELOGO%3C/text%3E%3C/svg%3E';">
                         </div>
                         <h1 class="text-3xl md:text-4xl font-extrabold text-cyan-600 mb-2 drop-shadow-sm">囍事快剪</h1>
                         <h2 class="text-2xl font-bold text-cyan-500 mb-8 tracking-wider">冷氣保養紀錄系統</h2>
                         
+                        <!-- 僅保留進入系統按鈕，並綁定 Nick -->
                         <div class="space-y-5">
                             <button onclick="handleLogin('Nick')" class="w-full bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-500 hover:to-blue-600 text-white font-bold py-4 px-6 text-xl rounded-xl shadow-lg transition-all transform hover:scale-105">
                                 進入系統 🚀
@@ -555,14 +532,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- 圖片放大檢視視窗 -->
-                <div id="image-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-[100] p-4 transition-opacity duration-300 opacity-0" onclick="closeImageModal()">
-                    <button onclick="closeImageModal()" class="absolute top-4 right-4 md:top-8 md:right-8 text-white hover:text-cyan-200 bg-white/20 hover:bg-white/40 rounded-full w-12 h-12 flex items-center justify-center transition-colors text-2xl z-50 shadow-lg border border-white/30">
-                        ❌
-                    </button>
-                    <img id="enlarged-image" src="" class="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl transform transition-transform duration-300 scale-95" onclick="event.stopPropagation()">
-                </div>
             `;
             renderMainGrid();
         };
@@ -595,7 +564,7 @@
                     // Zone 1: Photo, Brand, Model (Cyan Zone)
                     html += `
                         <td class="bg-cyan-50/70 p-2 border-r border-cyan-100 ${bb} align-middle w-[140px]">
-                            <img src="images/${ac.photo}" onclick="openImageModal('images/${ac.photo}')" class="w-full h-[70px] object-cover rounded-xl shadow-sm border border-cyan-300 cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-cyan-400 transition-all" alt="${ac.photo}" title="點擊放大檢視" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2270%22 viewBox=%220 0 120 70%22%3E%3Crect width=%22120%22 height=%2270%22 fill=%22%23cffafe%22/%3E%3Ctext x=%2260%22 y=%2240%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2214%22 text-anchor=%22middle%22 fill=%22%230891b2%22%3E無照片%3C/text%3E%3C/svg%3E';">
+                            <img src="images/${ac.photo}" class="w-full h-[70px] object-cover rounded-xl shadow-sm border border-cyan-200" alt="${ac.photo}" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2270%22 viewBox=%220 0 120 70%22%3E%3Crect width=%22120%22 height=%2270%22 fill=%22%23cffafe%22/%3E%3Ctext x=%2260%22 y=%2240%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2214%22 text-anchor=%22middle%22 fill=%22%230891b2%22%3E無照片%3C/text%3E%3C/svg%3E';">
                         </td>
                         <td class="bg-cyan-50/70 p-2 border-r border-cyan-100 ${bb} align-middle w-[130px]">
                             <select class="ac-input w-full p-2.5 rounded-xl border border-cyan-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none shadow-inner text-cyan-900 font-bold bg-white" data-photo="${ac.photo}" data-field="brand">
@@ -618,7 +587,7 @@
                             <input type="date" class="ac-input w-full p-2.5 rounded-xl border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none shadow-inner text-sm text-blue-900 bg-white" data-photo="${ac.photo}" data-field="installDate" value="${data.installDate}">
                         </td>
                         <td class="bg-blue-50/70 p-2 border-r-2 border-blue-200 ${bb} align-middle w-[130px]">
-                            <div id="f-${ac.photo}" class="text-sm font-bold text-blue-700 text-center bg-white p-2.5 rounded-xl border border-blue-100 shadow-sm h-[46px] flex items-center justify-center">${calculateUsageTime(data.installDate, false).text}</div>
+                            <div id="f-${ac.photo}" class="text-sm font-bold text-blue-700 text-center bg-white p-2.5 rounded-xl border border-blue-100 shadow-sm h-[46px] flex items-center justify-center">${calculateUsageTime(data.installDate).text}</div>
                         </td>
                     `;
                     
@@ -628,7 +597,7 @@
                             <input type="date" class="ac-input w-full p-2.5 rounded-xl border border-teal-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none shadow-inner text-sm text-teal-900 bg-white" data-photo="${ac.photo}" data-field="acWashDate" value="${data.acWashDate}">
                         </td>
                         <td class="bg-teal-50/70 p-2 border-r-2 border-teal-200 ${bb} align-middle w-[130px]">
-                            <div id="h-${ac.photo}" class="w-full h-[46px]">${renderACWashTime(data.acWashDate)}</div>
+                            <div id="h-${ac.photo}" class="text-sm font-bold text-teal-700 text-center bg-white p-2.5 rounded-xl border border-teal-100 shadow-sm h-[46px] flex items-center justify-center">${calculateUsageTime(data.acWashDate).text}</div>
                         </td>
                     `;
                     
@@ -638,7 +607,7 @@
                             <input type="date" class="ac-input w-full p-2.5 rounded-xl border border-emerald-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none shadow-inner text-sm text-emerald-900 bg-white" data-photo="${ac.photo}" data-field="filterWashDate" value="${data.filterWashDate}">
                         </td>
                         <td class="bg-emerald-50/70 p-2 border-r-2 border-emerald-200 ${bb} align-middle w-[130px]">
-                            <div id="j-${ac.photo}" class="w-full h-[46px]">${renderFilterTime(data.filterWashDate)}</div>
+                            <div id="j-${ac.photo}" class="text-sm text-center flex items-center justify-center h-[46px]">${renderFilterTime(data.filterWashDate)}</div>
                         </td>
                     `;
 
@@ -685,14 +654,14 @@
                 if (installEl && document.activeElement !== installEl) {
                     installEl.value = data.installDate || '';
                     const fEl = document.getElementById(`f-${photo}`);
-                    if (fEl) fEl.innerText = calculateUsageTime(data.installDate, false).text;
+                    if (fEl) fEl.innerText = calculateUsageTime(data.installDate).text;
                 }
 
                 const acWashEl = document.querySelector(`input[data-photo="${photo}"][data-field="acWashDate"]`);
                 if (acWashEl && document.activeElement !== acWashEl) {
                     acWashEl.value = data.acWashDate || '';
                     const hEl = document.getElementById(`h-${photo}`);
-                    if (hEl) hEl.innerHTML = renderACWashTime(data.acWashDate);
+                    if (hEl) hEl.innerText = calculateUsageTime(data.acWashDate).text;
                 }
 
                 const filterWashEl = document.querySelector(`input[data-photo="${photo}"][data-field="filterWashDate"]`);
@@ -709,41 +678,6 @@
                     btn.innerHTML = `<span>📝</span> <span>維修紀錄 (${count}筆)</span>`;
                 }
             }
-        };
-
-        // ==========================================
-        //  Image View Modal Logic
-        // ==========================================
-        window.openImageModal = (src) => {
-            const modal = document.getElementById('image-modal');
-            const img = document.getElementById('enlarged-image');
-            img.src = src;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            
-            // 使用一點延遲讓動畫順暢觸發
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modal.classList.add('opacity-100');
-                img.classList.remove('scale-95');
-                img.classList.add('scale-100');
-            }, 10);
-        };
-
-        window.closeImageModal = () => {
-            const modal = document.getElementById('image-modal');
-            const img = document.getElementById('enlarged-image');
-            
-            modal.classList.remove('opacity-100');
-            modal.classList.add('opacity-0');
-            img.classList.remove('scale-100');
-            img.classList.add('scale-95');
-            
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                img.src = '';
-            }, 300);
         };
 
         // ==========================================
@@ -878,9 +812,9 @@
 
                 // 即時運算並只更新指定欄位
                 if (field === 'installDate') {
-                    document.getElementById(`f-${photo}`).innerText = calculateUsageTime(e.target.value, false).text;
+                    document.getElementById(`f-${photo}`).innerText = calculateUsageTime(e.target.value).text;
                 } else if (field === 'acWashDate') {
-                    document.getElementById(`h-${photo}`).innerHTML = renderACWashTime(e.target.value);
+                    document.getElementById(`h-${photo}`).innerText = calculateUsageTime(e.target.value).text;
                 } else if (field === 'filterWashDate') {
                     document.getElementById(`j-${photo}`).innerHTML = renderFilterTime(e.target.value);
                 }
