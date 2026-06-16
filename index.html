@@ -537,7 +537,7 @@
 
             // 針對每一間分店建立獨立的 tbody 以實現 border 區隔
             for (const [branch, acList] of Object.entries(branchesMap)) {
-                html += `<tbody class="border-b-4 border-cyan-100 hover:bg-white/40 transition-colors">`;
+                html += `<tbody class="border-b-4 border-cyan-500 hover:bg-white/40 transition-colors">`;
                 
                 acList.forEach((ac, index) => {
                     // 初始化確保資料結構完整 (若遇到舊版沒有 repairs 陣列則建立)
