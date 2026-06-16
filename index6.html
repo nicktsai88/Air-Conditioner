@@ -98,9 +98,6 @@
         
         // 營收資料狀態 (關聯至 userData.acData)
         let appData = {};
-        
-        // 判定是否為第一次載入，避免覆寫焦點
-        let isFirstLoad = true;
 
         // 依照 PDF 表格建立的分店與冷氣相片對應清單
         const acConfig = [
@@ -204,7 +201,7 @@
         const el = id => document.getElementById(id);
 
         // ==========================================
-        //  Data Sync & Listeners (真正的即時更新架構)
+        //  Data Sync & Listeners
         // ==========================================
         const listenToGlobalUsers = () => {
             if (!isFirebaseInitialized || !currentUser) return;
@@ -224,8 +221,6 @@
             }
             const userRef = doc(db, 'artifacts', appId, 'public', 'data', `${COLLECTION_NAME}_profiles`, name);
             if(unsubscribeUser) unsubscribeUser();
-            isFirstLoad = true; // 新的監聽開始，重置狀態
-
             unsubscribeUser = onSnapshot(userRef, (docSnap) => {
                 if (docSnap.exists()) {
                     userData = Object.assign({ acData: {}, loginHistory: [] }, docSnap.data());
@@ -236,36 +231,8 @@
                     appData = {};
                     setDoc(userRef, userData, { merge: true });
                 }
-                
-                // 只有首度載入時重繪整個表格，其餘時候更新 DOM 節點(防中斷輸入)
-                if(currentTab === 'main') {
-                    if (isFirstLoad) {
-                        renderMainGrid();
-                        isFirstLoad = false;
-                    } else {
-                        updateGridDOM();
-                        if (currentRepairPhoto) renderRepairList();
-                    }
-                }
+                if(currentTab === 'main') renderMainGrid();
             }, (error) => console.error("Listen user error", error));
-        };
-
-        // 自動儲存防抖機制 (避免連續打字時頻繁呼叫API)
-        let saveTimeout;
-        window.debounceSaveToCloud = () => {
-            clearTimeout(saveTimeout);
-            
-            // UI 反饋：儲存中
-            const statusText = document.getElementById('sync-status-text');
-            const statusDot = document.getElementById('sync-status-dot');
-            if(statusText && statusDot) {
-                statusText.innerText = '儲存中...';
-                statusDot.className = 'status-dot bg-amber-400 animate-pulse';
-            }
-
-            saveTimeout = setTimeout(() => {
-                saveUserDataToCloud();
-            }, 1000);
         };
 
         window.saveUserDataToCloud = async () => {
@@ -273,26 +240,24 @@
             saveLocalData(username);
             if (!isFirebaseInitialized || !currentUser || !username) return;
             
+            const btn = document.getElementById('save-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span>⏳</span> 儲存中...';
+            
             const userRef = doc(db, 'artifacts', appId, 'public', 'data', `${COLLECTION_NAME}_profiles`, username);
             try { 
                 await setDoc(userRef, userData, { merge: true }); 
-                // UI 反饋：成功
-                const statusText = document.getElementById('sync-status-text');
-                const statusDot = document.getElementById('sync-status-dot');
-                if(statusText && statusDot) {
-                    statusText.innerText = '已同步至雲端';
-                    statusDot.className = 'status-dot bg-emerald-400';
-                }
+                btn.innerHTML = '<span>✅</span> 儲存成功！';
+                btn.classList.add('from-emerald-400', 'to-teal-500');
             } catch(e) { 
                 console.error("Firebase save error:", e); 
-                // UI 反饋：失敗
-                const statusText = document.getElementById('sync-status-text');
-                const statusDot = document.getElementById('sync-status-dot');
-                if(statusText && statusDot) {
-                    statusText.innerText = '儲存失敗';
-                    statusDot.className = 'status-dot bg-rose-500';
-                }
+                btn.innerHTML = '<span>❌</span> 儲存失敗';
+                btn.classList.add('from-red-400', 'to-rose-500');
             }
+            setTimeout(() => { 
+                btn.innerHTML = originalHtml; 
+                btn.classList.remove('from-emerald-400', 'to-teal-500', 'from-red-400', 'to-rose-500');
+            }, 2000);
         };
 
         const loadLocalData = (name) => {
@@ -400,7 +365,7 @@
                     <div class="absolute top-6 right-6 z-20">
                         <div class="glass-panel px-4 py-2 rounded-full shadow-sm text-sm font-bold text-cyan-800 flex items-center">
                             <span class="status-dot ${connectionStatus === 'loading' ? 'status-loading' : connectionStatus === 'success' ? 'status-success' : 'status-error'}"></span>
-                            ${connectionStatus === 'loading' ? '雲端讀取中... ⏳' : connectionStatus === 'success' ? '雲端連線正常 ☁️✨' : '雲端連線失敗 ❌'}
+                            ${connectionStatus === 'loading' ? '雲端讀取中... ⏳' : connectionStatus === 'success' ? '雲端已同步 ☁️✨' : '雲端連線失敗 ❌'}
                         </div>
                     </div>
                     
@@ -436,17 +401,20 @@
                                     <h1 class="text-2xl md:text-3xl font-bold text-cyan-600 drop-shadow-sm">
                                         ❄️ 2026年 囍事快剪 - 冷氣保養一覽表 ❄️
                                     </h1>
-                                    <p class="text-cyan-500 mt-1 font-semibold text-sm">✨ 系統已開啟自動儲存，所有變更將即時同步至雲端 ✨</p>
+                                    <p class="text-cyan-500 mt-1 font-semibold text-sm">變更後將自動暫存，點擊右方按鈕即可同步至雲端 ☁️</p>
                                 </div>
                             </div>
                             
-                            <!-- 連線狀態 -->
+                            <!-- 帳號與連線狀態 -->
                             <div class="flex flex-col items-center xl:items-end gap-2 mt-2 xl:mt-0 bg-cyan-50 p-3 rounded-2xl border border-cyan-100 shadow-inner">
                                 <div class="flex items-center text-xs font-bold text-cyan-700 bg-white px-3 py-1 rounded-full border border-cyan-200">
-                                    <span id="sync-status-dot" class="status-dot ${connectionStatus === 'loading' ? 'bg-amber-400 animate-pulse' : connectionStatus === 'success' ? 'bg-emerald-400' : 'bg-rose-500'}"></span>
-                                    <span id="sync-status-text">${connectionStatus === 'loading' ? '雲端讀取中...' : connectionStatus === 'success' ? '已連線並同步' : '離線模式'}</span>
+                                    <span class="status-dot ${connectionStatus === 'loading' ? 'bg-amber-400 animate-pulse' : connectionStatus === 'success' ? 'bg-emerald-400' : 'bg-rose-500'}"></span>
+                                    <span>${connectionStatus === 'loading' ? '雲端讀取中...' : connectionStatus === 'success' ? '資料已自動同步' : '離線模式'}</span>
                                 </div>
                                 <div class="flex items-center gap-3">
+                                    <button id="save-btn" onclick="saveUserDataToCloud()" class="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-500 hover:to-blue-600 text-white font-bold px-4 py-2 rounded-lg shadow-md transform hover:scale-105 transition-all flex items-center gap-2">
+                                        <span>💾</span> 儲存並同步至雲端
+                                    </button>
                                     <span class="font-bold text-blue-800 text-base">👤 ${username}</span>
                                     <button onclick="logout()" class="text-rose-500 hover:text-white bg-white hover:bg-rose-400 px-3 py-1.5 rounded-lg border border-rose-200 shadow-sm transition-all font-bold text-xs flex items-center"><span class="mr-1">🏠</span>返回首頁</button>
                                 </div>
@@ -519,7 +487,7 @@
                                     <input type="number" id="new-repair-amount" placeholder="金額(元)" class="p-2 rounded-xl border border-indigo-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm text-gray-700 shadow-inner text-right">
                                 </div>
                                 <button onclick="addRepairRecord()" class="w-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold py-2 rounded-xl transition-colors border border-indigo-300">
-                                    新增此筆紀錄
+                                    儲存此筆紀錄
                                 </button>
                             </div>
                         </div>
@@ -527,7 +495,7 @@
                         <!-- 按鈕區 -->
                         <div class="p-4 bg-white border-t border-indigo-100 flex justify-end shrink-0">
                             <button onclick="closeRepairModal()" class="px-8 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 shadow-lg transform hover:scale-105 transition-all">
-                                關閉視窗
+                                完成並關閉視窗
                             </button>
                         </div>
                     </div>
@@ -636,50 +604,6 @@
             tbody.innerHTML = html;
         };
 
-        // 專為背景更新 DOM 所設計，保證不打斷當前正在輸入的使用者
-        window.updateGridDOM = () => {
-            for (const photo in appData) {
-                const data = appData[photo];
-                
-                // 選單更新
-                const brandEl = document.querySelector(`select[data-photo="${photo}"][data-field="brand"]`);
-                if (brandEl && document.activeElement !== brandEl) brandEl.value = data.brand || '';
-                
-                // 文字框更新
-                const modelEl = document.querySelector(`input[data-photo="${photo}"][data-field="model"]`);
-                if (modelEl && document.activeElement !== modelEl) modelEl.value = data.model || '';
-
-                // 日期更新與運算
-                const installEl = document.querySelector(`input[data-photo="${photo}"][data-field="installDate"]`);
-                if (installEl && document.activeElement !== installEl) {
-                    installEl.value = data.installDate || '';
-                    const fEl = document.getElementById(`f-${photo}`);
-                    if (fEl) fEl.innerText = calculateUsageTime(data.installDate).text;
-                }
-
-                const acWashEl = document.querySelector(`input[data-photo="${photo}"][data-field="acWashDate"]`);
-                if (acWashEl && document.activeElement !== acWashEl) {
-                    acWashEl.value = data.acWashDate || '';
-                    const hEl = document.getElementById(`h-${photo}`);
-                    if (hEl) hEl.innerText = calculateUsageTime(data.acWashDate).text;
-                }
-
-                const filterWashEl = document.querySelector(`input[data-photo="${photo}"][data-field="filterWashDate"]`);
-                if (filterWashEl && document.activeElement !== filterWashEl) {
-                    filterWashEl.value = data.filterWashDate || '';
-                    const jEl = document.getElementById(`j-${photo}`);
-                    if (jEl) jEl.innerHTML = renderFilterTime(data.filterWashDate);
-                }
-                
-                // 維修按鈕更新
-                const btn = document.getElementById(`btn-repair-${photo}`);
-                if (btn) {
-                    const count = data.repairs ? data.repairs.length : 0;
-                    btn.innerHTML = `<span>📝</span> <span>維修紀錄 (${count}筆)</span>`;
-                }
-            }
-        };
-
         // ==========================================
         //  Repair Modal Logic
         // ==========================================
@@ -722,6 +646,13 @@
                 modal.classList.remove('flex');
             }, 200);
             
+            // 關閉時重新渲染主表格對應的按鈕數量及同步雲端
+            if (currentRepairPhoto) {
+                const count = appData[currentRepairPhoto].repairs.length;
+                const btn = document.getElementById(`btn-repair-${currentRepairPhoto}`);
+                if (btn) btn.innerHTML = `<span>📝</span> <span>維修紀錄 (${count}筆)</span>`;
+            }
+            saveUserDataToCloud();
             currentRepairPhoto = '';
         };
 
@@ -778,12 +709,6 @@
             amountEl.value = '';
             
             renderRepairList();
-            
-            // 即時更新底層按鈕數量，並觸發自動儲存
-            const count = appData[currentRepairPhoto].repairs.length;
-            const btn = document.getElementById(`btn-repair-${currentRepairPhoto}`);
-            if (btn) btn.innerHTML = `<span>📝</span> <span>維修紀錄 (${count}筆)</span>`;
-            debounceSaveToCloud();
         };
 
         window.deleteRepairRecord = (index) => {
@@ -792,12 +717,6 @@
             userData.acData = appData;
             saveLocalData(username);
             renderRepairList();
-            
-            // 即時更新底層按鈕數量，並觸發自動儲存
-            const count = appData[currentRepairPhoto].repairs.length;
-            const btn = document.getElementById(`btn-repair-${currentRepairPhoto}`);
-            if (btn) btn.innerHTML = `<span>📝</span> <span>維修紀錄 (${count}筆)</span>`;
-            debounceSaveToCloud();
         };
 
         // 全域事件監聽：當任何 input 變更時，即時運算更新畫面，並儲存至暫存檔
@@ -822,9 +741,6 @@
                 // 本機自動暫存
                 userData.acData = appData;
                 saveLocalData(username);
-                
-                // 觸發自動雲端儲存
-                debounceSaveToCloud();
             }
         });
 
