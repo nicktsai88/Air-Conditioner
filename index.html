@@ -140,19 +140,14 @@
         // ==========================================
         //  Date Calculations
         // ==========================================
-        window.calculateUsageTime = (startStr) => {
-            if (!startStr) return { text: '-', days: 0 };
+        window.diffYMD = (startStr) => {
+            if (!startStr) return '-';
             const start = new Date(startStr);
             const today = new Date();
-            today.setHours(23, 59, 59, 999);
-            
-            const totalDays = Math.floor((today - start) / (1000 * 60 * 60 * 24));
-            if (start > today) return { text: '0年00月00天', days: 0 };
-            
+            if (start > today) return '0年00月00日';
             let y = today.getFullYear() - start.getFullYear();
             let m = today.getMonth() - start.getMonth();
             let d = today.getDate() - start.getDate();
-            
             if (d < 0) {
                 m--;
                 const prev = new Date(today.getFullYear(), today.getMonth(), 0);
@@ -162,13 +157,28 @@
                 y--;
                 m += 12;
             }
-            
-            const text = `${y}年${m.toString().padStart(2, '0')}月${d.toString().padStart(2, '0')}天`;
-            return { text, days: totalDays };
+            return `${y}年${m.toString().padStart(2, '0')}月${d.toString().padStart(2, '0')}日`;
+        };
+
+        window.diffMD = (startStr) => {
+            if (!startStr) return { text: '-', days: 0 };
+            const start = new Date(startStr);
+            const today = new Date();
+            today.setHours(23, 59, 59, 999);
+            const totalDays = Math.floor((today - start) / (1000 * 60 * 60 * 24));
+            if (start > today) return { text: '00月00日', days: 0 };
+            let m = (today.getFullYear() - start.getFullYear()) * 12 + today.getMonth() - start.getMonth();
+            let d = today.getDate() - start.getDate();
+            if (d < 0) {
+                m--;
+                const prev = new Date(today.getFullYear(), today.getMonth(), 0);
+                d += prev.getDate();
+            }
+            return { text: `${m.toString().padStart(2, '0')}月${d.toString().padStart(2, '0')}日`, days: totalDays };
         };
 
         window.renderFilterTime = (startStr) => {
-            const data = calculateUsageTime(startStr);
+            const data = diffMD(startStr);
             if (data.text === '-') return '-';
             if (data.days > 30) {
                 return `<span class="text-red-600 font-extrabold bg-red-100 px-2 py-1 rounded shadow-sm border border-red-300 animate-pulse inline-block">${data.text} <br><span class="text-xs">(該洗濾網了)</span></span>`;
@@ -525,32 +535,28 @@
 
             let html = '';
 
-            // 針對每一間分店建立獨立的 tbody 以實現 hover 與區段管理
+            // 針對每一間分店建立獨立的 tbody 以實現 border 區隔
             for (const [branch, acList] of Object.entries(branchesMap)) {
-                html += `<tbody class="hover:bg-white/40 transition-colors">`;
+                html += `<tbody class="border-b-4 border-cyan-500 hover:bg-white/40 transition-colors">`;
                 
                 acList.forEach((ac, index) => {
-                    // 初始化確保資料結構完整
+                    // 初始化確保資料結構完整 (若遇到舊版沒有 repairs 陣列則建立)
                     const data = appData[ac.photo] || { brand: '', model: '', installDate: '', acWashDate: '', filterWashDate: '', repairs: [] };
                     if (!data.repairs) data.repairs = [];
-
-                    // 判斷是否為此分店的最後一台冷氣，用來決定分隔線的粗細和顏色
-                    const isLastRow = index === acList.length - 1;
-                    const bb = isLastRow ? 'border-b-4 border-cyan-500' : 'border-b border-cyan-100';
 
                     html += `<tr>`;
                     
                     // Zone 1: Branch (第一列專屬，跨列置中)
                     if (index === 0) {
-                        html += `<td rowspan="${acList.length}" class="sticky-col bg-white border-r-2 border-cyan-200 border-b-4 border-cyan-500 text-center font-extrabold text-cyan-800 text-lg align-middle bg-clip-padding p-2 w-[100px]">${branch}</td>`;
+                        html += `<td rowspan="${acList.length}" class="sticky-col bg-white border-r border-cyan-100 text-center font-extrabold text-cyan-800 text-lg align-middle bg-clip-padding p-2 w-[100px]">${branch}</td>`;
                     }
                     
                     // Zone 1: Photo, Brand, Model (Cyan Zone)
                     html += `
-                        <td class="bg-cyan-50/70 p-2 border-r border-cyan-100 ${bb} align-middle w-[140px]">
+                        <td class="bg-cyan-50/70 p-2 border-r border-cyan-100 align-middle w-[140px]">
                             <img src="images/${ac.photo}" class="w-full h-[70px] object-cover rounded-xl shadow-sm border border-cyan-200" alt="${ac.photo}" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2270%22 viewBox=%220 0 120 70%22%3E%3Crect width=%22120%22 height=%2270%22 fill=%22%23cffafe%22/%3E%3Ctext x=%2260%22 y=%2240%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2214%22 text-anchor=%22middle%22 fill=%22%230891b2%22%3E無照片%3C/text%3E%3C/svg%3E';">
                         </td>
-                        <td class="bg-cyan-50/70 p-2 border-r border-cyan-100 ${bb} align-middle w-[130px]">
+                        <td class="bg-cyan-50/70 p-2 border-r border-cyan-100 align-middle w-[130px]">
                             <select class="ac-input w-full p-2.5 rounded-xl border border-cyan-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none shadow-inner text-cyan-900 font-bold bg-white" data-photo="${ac.photo}" data-field="brand">
                                 <option value="" ${data.brand === '' ? 'selected' : ''}></option>
                                 <option value="華菱" ${data.brand === '華菱' ? 'selected' : ''}>華菱</option>
@@ -560,44 +566,44 @@
                                 <option value="冰點" ${data.brand === '冰點' ? 'selected' : ''}>冰點</option>
                             </select>
                         </td>
-                        <td class="bg-cyan-50/70 p-2 border-r-2 border-cyan-200 ${bb} align-middle w-[130px]">
+                        <td class="bg-cyan-50/70 p-2 border-r-2 border-cyan-200 align-middle w-[130px]">
                             <input type="text" class="ac-input w-full p-2.5 rounded-xl border border-cyan-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none shadow-inner text-cyan-900 font-bold placeholder-cyan-300 bg-white" placeholder="輸入型號" data-photo="${ac.photo}" data-field="model" value="${data.model}">
                         </td>
                     `;
                     
                     // Zone 2: Install Date, Usage Time (Blue Zone)
                     html += `
-                        <td class="bg-blue-50/70 p-2 border-r border-blue-100 ${bb} align-middle w-[150px]">
+                        <td class="bg-blue-50/70 p-2 border-r border-blue-100 align-middle w-[150px]">
                             <input type="date" class="ac-input w-full p-2.5 rounded-xl border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none shadow-inner text-sm text-blue-900 bg-white" data-photo="${ac.photo}" data-field="installDate" value="${data.installDate}">
                         </td>
-                        <td class="bg-blue-50/70 p-2 border-r-2 border-blue-200 ${bb} align-middle w-[130px]">
-                            <div id="f-${ac.photo}" class="text-sm font-bold text-blue-700 text-center bg-white p-2.5 rounded-xl border border-blue-100 shadow-sm h-[46px] flex items-center justify-center">${calculateUsageTime(data.installDate).text}</div>
+                        <td class="bg-blue-50/70 p-2 border-r-2 border-blue-200 align-middle w-[130px]">
+                            <div id="f-${ac.photo}" class="text-sm font-bold text-blue-700 text-center bg-white p-2.5 rounded-xl border border-blue-100 shadow-sm h-[46px] flex items-center justify-center">${diffYMD(data.installDate)}</div>
                         </td>
                     `;
                     
                     // Zone 3: AC Wash Date, Usage Time (Teal Zone)
                     html += `
-                        <td class="bg-teal-50/70 p-2 border-r border-teal-100 ${bb} align-middle w-[150px]">
+                        <td class="bg-teal-50/70 p-2 border-r border-teal-100 align-middle w-[150px]">
                             <input type="date" class="ac-input w-full p-2.5 rounded-xl border border-teal-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none shadow-inner text-sm text-teal-900 bg-white" data-photo="${ac.photo}" data-field="acWashDate" value="${data.acWashDate}">
                         </td>
-                        <td class="bg-teal-50/70 p-2 border-r-2 border-teal-200 ${bb} align-middle w-[130px]">
-                            <div id="h-${ac.photo}" class="text-sm font-bold text-teal-700 text-center bg-white p-2.5 rounded-xl border border-teal-100 shadow-sm h-[46px] flex items-center justify-center">${calculateUsageTime(data.acWashDate).text}</div>
+                        <td class="bg-teal-50/70 p-2 border-r-2 border-teal-200 align-middle w-[130px]">
+                            <div id="h-${ac.photo}" class="text-sm font-bold text-teal-700 text-center bg-white p-2.5 rounded-xl border border-teal-100 shadow-sm h-[46px] flex items-center justify-center">${diffMD(data.acWashDate).text}</div>
                         </td>
                     `;
                     
                     // Zone 4: Filter Wash Date, Usage Time (Emerald Zone)
                     html += `
-                        <td class="bg-emerald-50/70 p-2 border-r border-emerald-100 ${bb} align-middle w-[150px]">
+                        <td class="bg-emerald-50/70 p-2 border-r border-emerald-100 align-middle w-[150px]">
                             <input type="date" class="ac-input w-full p-2.5 rounded-xl border border-emerald-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none shadow-inner text-sm text-emerald-900 bg-white" data-photo="${ac.photo}" data-field="filterWashDate" value="${data.filterWashDate}">
                         </td>
-                        <td class="bg-emerald-50/70 p-2 border-r-2 border-emerald-200 ${bb} align-middle w-[130px]">
+                        <td class="bg-emerald-50/70 p-2 border-r-2 border-emerald-200 align-middle w-[130px]">
                             <div id="j-${ac.photo}" class="text-sm text-center flex items-center justify-center h-[46px]">${renderFilterTime(data.filterWashDate)}</div>
                         </td>
                     `;
 
                     // Zone 5: Repair Records Button (Indigo Zone)
                     html += `
-                        <td class="bg-indigo-50/70 p-2 ${bb} align-middle w-[200px]">
+                        <td class="bg-indigo-50/70 p-2 align-middle w-[200px]">
                             <button onclick="openRepairModal('${ac.photo}', '${branch}')" id="btn-repair-${ac.photo}" class="w-full bg-white hover:bg-indigo-100 text-indigo-700 font-bold py-2.5 px-3 rounded-xl transition-colors border border-indigo-200 shadow-sm flex items-center justify-center gap-2">
                                 <span>📝</span> <span>維修紀錄 (${data.repairs.length}筆)</span>
                             </button>
@@ -739,9 +745,9 @@
 
                 // 即時運算並只更新指定欄位
                 if (field === 'installDate') {
-                    document.getElementById(`f-${photo}`).innerText = calculateUsageTime(e.target.value).text;
+                    document.getElementById(`f-${photo}`).innerText = diffYMD(e.target.value);
                 } else if (field === 'acWashDate') {
-                    document.getElementById(`h-${photo}`).innerText = calculateUsageTime(e.target.value).text;
+                    document.getElementById(`h-${photo}`).innerText = diffMD(e.target.value).text;
                 } else if (field === 'filterWashDate') {
                     document.getElementById(`j-${photo}`).innerHTML = renderFilterTime(e.target.value);
                 }
