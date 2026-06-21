@@ -178,7 +178,7 @@
             // 動態組裝文字：不顯示 0 年或 0 個月
             let text = '';
             if (y > 0) text += `${y}年`;
-            if (m > 0) text += `${m}個月`; // 這裡修改為 [個月]
+            if (m > 0) text += `${m}月`;
             if (d > 0 || text === '') text += `${d}天`; // 如果都沒有則預設顯示 0天
             
             return { text, days: totalDays, totalMonths };
@@ -967,29 +967,6 @@
             if (btn) btn.innerHTML = `<span>📝</span> <span>維修紀錄 (${count}筆)</span>`;
             debounceSaveToCloud();
         };
-
-        document.addEventListener('input', (e) => {
-            if (e.target.classList.contains('ac-input')) {
-                const photo = e.target.dataset.photo;
-                const field = e.target.dataset.field;
-                if (!appData[photo]) {
-                    appData[photo] = { brand: '', model: '', installDate: '', acWashDate: '', filterWashDate: '', repairs: [] };
-                }
-                appData[photo][field] = e.target.value;
-
-                if (field === 'installDate') {
-                    document.getElementById(`f-${photo}`).innerText = calculateUsageTime(e.target.value, false).text;
-                } else if (field === 'acWashDate') {
-                    document.getElementById(`h-${photo}`).innerHTML = renderACWashTime(e.target.value);
-                } else if (field === 'filterWashDate') {
-                    document.getElementById(`j-${photo}`).innerHTML = renderFilterTime(e.target.value);
-                }
-
-                userData.acData = appData;
-                saveLocalData(username);
-                debounceSaveToCloud();
-            }
-        });
 
         // Initialize App
         initApp();
